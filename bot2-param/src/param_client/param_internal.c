@@ -787,12 +787,12 @@ BotParam * bot_param_new_from_named_server (lcm_t * lcm, const char * server_nam
 {
   BotParam * param = _bot_param_new();
 
-  const char *param_prefix = server_name; 
+  const char *param_prefix = server_name;
   if (!param_prefix) param_prefix = getenv ("BOT_PARAM_SERVER_NAME");
-  gchar *update_channel = update_channel = g_strconcat (param_prefix ? : "", 
-          BOT_PARAM_UPDATE_CHANNEL, NULL); 
-  gchar *request_channel = request_channel = g_strconcat (param_prefix ? : "", 
-          BOT_PARAM_REQUEST_CHANNEL, NULL); 
+  gchar *update_channel = update_channel = g_strconcat (param_prefix ? : "",
+          BOT_PARAM_UPDATE_CHANNEL, NULL);
+  gchar *request_channel = request_channel = g_strconcat (param_prefix ? : "",
+          BOT_PARAM_REQUEST_CHANNEL, NULL);
 
   bot_param_update_t_subscription_t * sub = bot_param_update_t_subscribe(lcm, update_channel, _on_param_update,
       (void *) param);
@@ -864,13 +864,56 @@ static BotParam * _new_from_file(const char * filename)
   }
 }
 
+/*  Add <string> to the end of array <array>.
+ * Returns: pointer to the array after the string has been added.
+ */
+char **add_string(char **array, const char *string) {
+
+    int lastIndex = 0;
+    while (array[lastIndex] != NULL)
+        lastIndex++;
+
+    /*reallocate so the array of strings can hold one more string; note that lastIndex is zero-based; hence, the size of the current array is lastIndex+1, and consequently the size of the new array needs to be lastIndex+2 */
+    // char** newArray = (char**)realloc(array, sizeof (array) + sizeof (char*));
+    char** newArray = (char**)realloc(array, (lastIndex+2) * sizeof (char*));
+    if (!newArray) return array;
+
+    /*allocate memory for new string*/
+    char* newString = strdup(string);
+    //char* newString = malloc(strlen(string) * sizeof (char));
+    if (!newString) return newArray;
+
+    /*copy old string to new string*/
+    //int lastIndex = sizeof (newArray) / sizeof (char*);
+    //strncpy(newString,string,strlen(string));
+
+
+    /*null terminate array and set old end of array to new string*/
+    //newArray[lastIndex] = NULL;
+    //newArray[lastIndex-1] = newString;
+
+    newArray[lastIndex++] = newString;
+    newArray[lastIndex] = NULL;
+
+    return newArray;
+}
+
 BotParam * bot_param_new_from_file (const char *filename)
 {
+
+    // Get an array of files to include.
+    // Parse the file.
     BotParam *param_parent = _new_from_file (filename);
     if (!param_parent)
         return NULL;
+    // Get the includes for the file.
+    char** include = bot_param_get_str_array_alloc (param_parent, BOT_PARAM_INCLUDE_KEYWORD);
 
-    char **include = bot_param_get_str_array_alloc (param_parent, BOT_PARAM_INCLUDE_KEYWORD);
+    // Get the number of includes.
+    // int include_len = 0;
+    // for (char **file=include; *file; file++)
+    //     include_len++;
+
     if (!include)
         return param_parent; // nothing to include
 
@@ -886,7 +929,10 @@ BotParam * bot_param_new_from_file (const char *filename)
     gsize param_len = len;
     char *param_dir = g_path_get_dirname (filename);
 
-    for (char **child=include; *child; child++) {
+    // Iterate through the includes.
+    for (int i=0; *(i+include); i++) {
+        char **child = (i+include);
+
         char *child_filename = NULL;
         if (g_path_is_absolute (*child))
             child_filename = g_strdup (*child);
@@ -896,7 +942,7 @@ BotParam * bot_param_new_from_file (const char *filename)
             child_filename = g_build_filename (param_dir, *child, NULL);
 
         if (!g_file_test (child_filename, G_FILE_TEST_EXISTS)) {
-            fprintf (stderr, "%s: can't include [%s], file does not exist\n", 
+            fprintf (stderr, "%s: can't include [%s], file does not exist\n",
                      __func__, child_filename);
             abort ();
         }
@@ -909,6 +955,36 @@ BotParam * bot_param_new_from_file (const char *filename)
             char *tmp = param_str;
             param_str = g_strconcat (tmp, contents, NULL);
             param_len += len;
+
+            // Parse the includes for this file
+            BotParam *param_tmp = _new_from_file (child_filename);
+            if (param_tmp){
+              // Get the includes for the file.
+              char** tmp_include_pointers = bot_param_get_str_array_alloc (param_tmp, BOT_PARAM_INCLUDE_KEYWORD);
+              // Check if there are any includes.
+              if (tmp_include_pointers){
+                // Put them in the includes vector
+                // This is a potentially dangerous operation IF there are circular includes.
+                for (char **file=tmp_include_pointers; *file; file++){
+                  // Check that this file is not already included
+                  int file_included = 0;
+                  for (char **s=include; *s; s++){
+                    file_included = (strcmp(*s, *file)==0 || file_included);
+                  }
+                  // Add the file if not already included.
+                  if (file_included == 0){
+                    include = add_string(include, *file);
+                    fprintf (stderr, "%s: Including [%s]\n",
+                             __func__, *file);
+                  }
+
+                }
+              }
+              bot_param_destroy (param_tmp);
+              //bot_param_str_array_free (tmp_include_pointers);
+            }
+
+
             g_free (tmp);
             g_free (child_filename);
             g_free (contents);
