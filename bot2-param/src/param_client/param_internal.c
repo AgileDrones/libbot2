@@ -167,8 +167,17 @@ static int get_ch_file(Parser * p)
       pf->in_comment = 0;
       return ' ';
     }
-    if (ch == '#')
-      pf->in_comment = 1;
+    if (ch == '/'){
+      // Peek at next char.
+      int next_ch = getc (pf->file);
+      // If it's not what we expect, put it back and walk away.
+      if (next_ch != '/' ){
+        ungetc(next_ch, pf->file);
+      } else {
+        pf->in_comment = 1;
+      }
+    }
+
     if (pf->in_comment)
       continue;
 
@@ -210,8 +219,14 @@ static int get_ch_string(Parser * p)
       ps->in_comment = 0;
       return ' ';
     }
-    if (ch == '#')
-      ps->in_comment = 1;
+    if (ch == '/'){
+      // Peek at next char.
+      int next_ch = ps->string[ps->ind];
+      // Check if the next char signifies that it's a comment.
+      if (next_ch == '/' ){
+        ps->in_comment = 1;
+      }
+    }
     if (ps->in_comment)
       continue;
 
