@@ -3,7 +3,7 @@
 #Converts a LCM log to a "matrix" format that is easier to work with in external
 #tools such as Matlab. The set of messages on a given channel can be represented 
 #as a matrix, where the columns of this matrix are the the fields of the lcm type
-#with one message per row 
+#with one message per row
 
 import os
 import sys
@@ -18,6 +18,8 @@ if sys.version_info < (2, 6):
     import scipy.io.mio
 else:
     import scipy.io.matlab.mio
+
+from scipy.io import savemat
 
 from lcm import EventLog
 from scan_for_lcmtypes import *
@@ -59,7 +61,7 @@ def make_obj_list_accessor(fieldname, func):
 #        for elem in msg_lst:
 #            func(lst, elem)
 #    return list_accessor
-#    
+#
 
 
 def make_lcmtype_accessor(msg):
@@ -126,7 +128,7 @@ def make_lcmtype_string(msg, base=True):
             # check the data type of the array
             if arr.dtype.kind in "bif":
                 # numeric data type
-                
+
                 if base:
                     typeStr.append("%d- %s(%d)" % (count + 1, fieldname, len(arr.ravel())))
                 else:
@@ -168,6 +170,7 @@ def deleteStatusMsg(statMsg):
 
 longOpts = ["help", "print", "format", "separator", "channelsToProcess", "ignore", "outfile", "lcm_packages"]
 
+### Start of processing
 try:
     opts, args = getopt.gnu_getopt(sys.argv[1:], "hpvfs:c:i:o:l:", longOpts)
 except getopt.GetoptError, err:
@@ -242,10 +245,11 @@ msgCount = 0
 statusMsg = ""
 startTime = 0
 
+### Start processing the log ###
 for e in log:
-    if msgCount == 0: 
+    if msgCount == 0:
         startTime = e.timestamp
-        
+
     if e.channel in ignored_channels:
         continue
     if ((checkIgnore and channelsToIgnore.match(e.channel) and len(channelsToIgnore.match(e.channel).group())==len(e.channel)) \
@@ -256,6 +260,7 @@ for e in log:
         ignored_channels.append(e.channel)
         continue
 
+    ## This is an event we actually want to process
     packed_fingerprint = e.data[:8]
     lcmtype = type_db.get(packed_fingerprint, None)
     if not lcmtype:
@@ -270,14 +275,16 @@ for e in log:
         statusMsg = deleteStatusMsg(statusMsg)
         sys.stderr.write("error: couldn't decode msg on channel %s\n" % e.channel)
         continue
-    
+
+    ## We were successfully able to decode the message
     msgCount = msgCount + 1
     if (msgCount % 5000) == 0:
         statusMsg = deleteStatusMsg(statusMsg)
         statusMsg = "read % d messages, % d %% done" % (msgCount, log.tell() / float(log.size())*100)
         sys.stderr.write(statusMsg)
         sys.stderr.flush()
-    
+
+    ## Figure out how to parse this message
     if e.channel in flatteners:
         flattener = flatteners[e.channel]
     else:
@@ -288,12 +295,12 @@ for e in log:
             statusMsg = deleteStatusMsg(statusMsg)
             typeStr, fieldCount = make_lcmtype_string(msg)
             typeStr.append("%d- log_timestamp" % (fieldCount + 1))
-            
+
             typeStr = "\n#%s  %s :\n#[\n#%s\n#]\n" % (e.channel, lcmtype, "\n#".join(typeStr))
             sys.stderr.write(typeStr)
-                
 
 
+    ## Parse the message
     a = flattener(msg)
     #in case the initial flattener didn't work for whatever reason :-/
     # convert to a numpy array
@@ -306,14 +313,16 @@ for e in log:
         flatteners[e.channel] = flattener
         a = flattener(msg)
 
+    ## Compute the log time
     a.append((e.timestamp - startTime) / 1e6)
+    ## Place the new data in a structure
     if printOutput:
         printFile.write("%s%s%s\n" % (e.channel, separator, separator.join([str(k) for k in a])))
     else:
         data[e.channel].append(a)
-        
-       
-    
+
+
+
 
 deleteStatusMsg(statusMsg)
 if not printOutput:
@@ -329,8 +338,8 @@ if not printOutput:
                 pad = numpy.zeros(maxLen - lengths[count])
                 i.extend(pad)
                 count = count + 1
-            
-            
+
+
     sys.stderr.write("loaded all %d messages, saving to % s\n" % (msgCount, outFname))
 
     if sys.version_info < (2, 6):
@@ -338,8 +347,9 @@ if not printOutput:
     else:
         scipy.io.matlab.mio.savemat(outFname, data, oned_as='row')
 
-    
+    ## Write the actual file
     mfile = open(dirname + "/" + outBaseName + ".m", "w")
+    ## Write the .m to load it
     loadFunc = """function [d imFnames]=%s()
 full_fname = '%s';
 fname = '%s';
@@ -351,7 +361,7 @@ end
 d = load(filename);
 """ % (outBaseName, outFname, fullPathName)
 
-    
-    
+
+
     mfile.write(loadFunc);
     mfile.close()
