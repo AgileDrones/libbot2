@@ -186,7 +186,7 @@ def getUnderlyingType(val):
                 return newType
 
         # Nothing had a valid type, so return list
-        return types.ListType
+        return types.NoneType
 
     # Wasn't a list/tuple, so just return
     return type(val)
@@ -197,21 +197,28 @@ def convertSingleDict(origDict):
         if type(origDict[field]) in [ types.ListType, types.TupleType ]:
             # If use, find the underlying type
             ftype = getUnderlyingType(origDict[field])
-            if ftype in types.StringTypes:
+            if (ftype == types.NoneType):
+                continue;
+            elif ftype in types.StringTypes:
                 origDict[field] = numpy.array(origDict[field], dtype=object).transpose()
-            elif ftype in [ types.IntType, types.LongType, types.BooleanType ]:
-                origData = origDict[field]
-                # Convert underlying elements to float
-                newData = []
-                for elem in origData:
-                    newData.append(numpy.array(elem, dtype=float))
+            elif ftype in [ types.IntType, types.LongType, types.BooleanType, types.FloatType ]:
+                # Find the next type
+                if (type(origDict[field][0]) in [ types.IntType, types.LongType, types.BooleanType, types.FloatType ]):
+                    # Single type class
+                    origDict[field] = numpy.atleast_2d(numpy.array(origDict[field], dtype=float))
+                else:
+                    origData = origDict[field]
+                    # Convert underlying elements to float
+                    newData = []
+                    for elem in origData:
+                        newData.append(numpy.array(elem, dtype=float))
 
-                origDict[field] = numpy.array(newData).transpose()
-            else:
-                origDict[field] = numpy.array(origDict[field]).transpose()
+                    newData = numpy.array(newData).transpose()
+
+                    origDict[field] = newData
 
         elif type(origDict[field]) in [ types.IntType, types.LongType, types.BooleanType ]:
-            origDict[field] = float(origDict[field])
+            origDict[field] = numpy.array(origDict[field], dtype=float)
 
     return origDict
 
@@ -481,7 +488,7 @@ if not printOutput:
 
     d = makeArrayDict(rawdata)
 
-    savemat(outFnameRaw, d, oned_as='row')
+    savemat(outFnameRaw, d, oned_as='column')
 
     ## Write the actual file
     mfile = open(dirname + "/" + outBaseName + ".m", "w")
