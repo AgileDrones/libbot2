@@ -1,7 +1,7 @@
     #!/usr/bin/python
 #
 #Converts a LCM log to a "matrix" format that is easier to work with in external
-#tools such as Matlab. The set of messages on a given channel can be represented 
+#tools such as Matlab. The set of messages on a given channel can be represented
 #as a matrix, where the columns of this matrix are the the fields of the lcm type
 #with one message per row
 
@@ -18,8 +18,6 @@ if sys.version_info < (2, 6):
     import scipy.io.mio
 else:
     import scipy.io.matlab.mio
-
-from scipy.io import savemat
 
 from lcm import EventLog
 from scan_for_lcmtypes import *
@@ -44,7 +42,6 @@ def usage():
 
 flatteners = {}
 data = {}
-rawdata = {}
 
 def make_simple_accessor(fieldname):
     return lambda lst, x: lst.append(getattr(x, fieldname))
@@ -63,13 +60,6 @@ def make_obj_list_accessor(fieldname, func):
 #            func(lst, elem)
 #    return list_accessor
 #
-
-# def get_base_array(val):
-#     if type(val) in [ types.IntType, types.LongType, types.FloatType,
-#                       types.BooleanType ]:
-#         return numpy.array([], dtype=double)
-#     elif type(val) in [ types.ListType, types.TupleType ]:
-#         return basestruct[fieldname] = numpy.array([], dtype=double)
 
 
 def make_lcmtype_accessor(msg):
@@ -176,123 +166,6 @@ def deleteStatusMsg(statMsg):
         sys.stderr.write("\r")
     return ""
 
-# Get the data type of the lowest level, if everything is empty returns list type
-def getUnderlyingType(val):
-    if type(val) in [ types.ListType, types.TupleType ]:
-        # Recursively dive for the right type
-        for listval in val:
-            newType = getUnderlyingType(listval)
-            if (newType != types.ListType):
-                return newType
-
-        # Nothing had a valid type, so return list
-        return types.NoneType
-
-    # Wasn't a list/tuple, so just return
-    return type(val)
-
-def convertSingleDict(origDict):
-    for field in origDict:
-        # Check that this is actually a list
-        if type(origDict[field]) in [ types.ListType, types.TupleType ]:
-            # If use, find the underlying type
-            ftype = getUnderlyingType(origDict[field])
-            if (ftype == types.NoneType):
-                continue;
-            elif ftype in types.StringTypes:
-                origDict[field] = numpy.array(origDict[field], dtype=object).transpose()
-            elif ftype in [ types.IntType, types.LongType, types.BooleanType, types.FloatType ]:
-                # Find the next type
-                if (type(origDict[field][0]) in [ types.IntType, types.LongType, types.BooleanType, types.FloatType ]):
-                    # Single type class
-                    origDict[field] = numpy.atleast_2d(numpy.array(origDict[field], dtype=float))
-                else:
-                    origData = origDict[field]
-                    # Convert underlying elements to float
-                    newData = []
-                    for elem in origData:
-                        newData.append(numpy.array(elem, dtype=float))
-
-                    newData = numpy.array(newData).transpose()
-
-                    origDict[field] = newData
-
-        elif type(origDict[field]) in [ types.IntType, types.LongType, types.BooleanType ]:
-            origDict[field] = numpy.array(origDict[field], dtype=float)
-
-    return origDict
-
-
-# Take in a dict, squash numeric data of the same size, convert numeric data to double and char data to string
-def makeArrayDict(dictIn):
-    dictOut = {}
-    for channel in dictIn:
-        dictOut[channel + 'Parsed'] = convertSingleDict(dictIn[channel])
-
-    return dictOut
-
-def addMessageList(field):
-    # Check that his function wasn't called incorrectly
-    basetype = getUnderlyingType(field)
-    if not hasattr(basetype, '__slots__'):
-        raise ValueError('Tried to run addMessageList with a non-lcm base type')
-
-    # Check if we are only one level away
-    if (len(field) == 0):
-        return {}
-
-    if hasattr(field[0], '__slots__'):
-        # Only one level down, first create the empty structure
-        # Outputs a structure of concatenated data, concatenated along the list
-        msgStruct = addMessage({}, '', field[0], True)
-        msgStruct['numMsg'] = 0
-        # Add everything to the structure
-        for item in field:
-            msgStruct = addMessage(msgStruct, '', item)
-            msgStruct['numMsg'] += 1
-
-        # Convert the dictionary to approriate form
-        return convertSingleDict(msgStruct)
-
-    # At least one level of lists lie between this and the underlying messeges
-    # This will output a list of struct/lists (depending on the next level
-    outList = []
-    for item in field:
-        outList.append(addMessageList(item))
-
-    return outList
-
-def makeVarName(baseName, fieldName):
-    if len(baseName) == 0:
-        return fieldName
-    else:
-        return baseName + '__' + fieldName
-
-def addMessage(struct, baseName, msg, create = False):
-    for fieldName in getattr(msg, '__slots__'):
-        field = getattr(msg, fieldName)
-        if hasattr(field, '__slots__'):
-            # The field is another lcm type
-            struct = addMessage(struct, makeVarName(baseName, fieldName), field, create)
-        else:
-            basetype = getUnderlyingType(field)
-            if hasattr(basetype, '__slots__'):
-                # The field is a tuple/list of another lcmtype
-                if (create):
-                    struct[makeVarName(baseName, fieldName)] = []
-                else:
-                    # Appends either a struct, or a list of structs, or...
-                    struct[makeVarName(baseName, fieldName)].append(addMessageList(field))
-
-            else:
-                # Non message field, we can just append
-                if (create):
-                    struct[makeVarName(baseName, fieldName)] = []
-                else:
-                    struct[makeVarName(baseName, fieldName)].append(field)
-
-    return struct
-
 longOpts = ["help", "print", "format", "separator", "channelsToProcess", "ignore", "outfile", "lcm_packages"]
 
 ### Start of processing
@@ -311,7 +184,6 @@ lcm_packages = [ "botlcm"]
 outDir, outFname = os.path.split(os.path.abspath(fname))
 outFname = outFname.replace(".", "_")
 outFname = outFname.replace("-", "_")
-outFnameRaw = outDir + "/" + outFname + "_parsed.mat"
 outFname = outDir + "/" + outFname + ".mat"
 printFname = "stdout"
 printFile = sys.stdout
@@ -417,16 +289,6 @@ for e in log:
         flattener = make_flattener(msg)
         flatteners[e.channel] = flattener
         data[e.channel] = []
-        # Create empty data structure with expanded field
-        basestruct = addMessage({}, '', msg, True)
-
-        basestruct['logTime'] = []
-        basestruct['channel'] = str(e.channel)
-        basestruct['typename'] = msg.__class__.__name__
-        basestruct['numMsg'] = 0
-
-        rawdata[e.channel] = basestruct
-
         if printFormat:
             statusMsg = deleteStatusMsg(statusMsg)
             typeStr, fieldCount = make_lcmtype_string(msg)
@@ -450,17 +312,14 @@ for e in log:
         a = flattener(msg)
 
     ## Compute the log time
-    logTime = (e.timestamp - startTime) / 1e6
-    a.append(logTime)
-
+    a.append((e.timestamp - startTime) / 1e6)
     ## Place the new data in a structure
     if printOutput:
         printFile.write("%s%s%s\n" % (e.channel, separator, separator.join([str(k) for k in a])))
     else:
         data[e.channel].append(a)
-        rawdata[e.channel] = addMessage(rawdata[e.channel], '', msg)
-        rawdata[e.channel]['logTime'].append(logTime)
-        rawdata[e.channel]['numMsg'] += 1
+
+
 
 
 deleteStatusMsg(statusMsg)
@@ -485,10 +344,6 @@ if not printOutput:
         scipy.io.mio.savemat(outFname, data)
     else:
         scipy.io.matlab.mio.savemat(outFname, data, oned_as='row')
-
-    d = makeArrayDict(rawdata)
-
-    savemat(outFnameRaw, d, oned_as='column')
 
     ## Write the actual file
     mfile = open(dirname + "/" + outBaseName + ".m", "w")
