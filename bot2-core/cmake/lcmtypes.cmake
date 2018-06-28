@@ -455,6 +455,38 @@ function(lcmtypes_build_python)
     lcmtypes_add_clean_dir(${_lcmtypes_python_dir})
 endfunction()
 
+function(lcmtypes_build_csharp)
+    lcmtypes_get_types(_lcmtypes)
+    list(LENGTH _lcmtypes _num_lcmtypes)
+    if(_num_lcmtypes EQUAL 0)
+        return()
+    endif()
+
+    set(_lcmtypes_csharp_dir ${PROJECT_SOURCE_DIR}/lcmtypes/csharp)
+    set(auto_manage_files YES)
+
+    # purge existing files?
+    if(auto_manage_files)
+        file(REMOVE_RECURSE ${_lcmtypes_csharp_dir})
+    endif()
+
+    # generate csharp bindings for LCM types
+    execute_process(COMMAND mkdir -p ${_lcmtypes_csharp_dir})
+    execute_process(COMMAND ${LCM_GEN_EXECUTABLE} --lazy --csharp ${_lcmtypes} --csharp-path ${_lcmtypes_csharp_dir})
+
+    # run lcm-gen at compile time
+    add_custom_target(lcmgen_csharp ALL
+        COMMAND sh -c '${LCM_GEN_EXECUTABLE} --lazy --csharp ${_lcmtypes} --csharp-path ${_lcmtypes_csharp_dir}')
+
+    if(NOT auto_manage_files)
+        return()
+    endif()
+
+    #file(GLOB_RECURSE _lcmtypes_csharp_files "${_lcmtypes_csharp_dir}/**/*")
+
+    lcmtypes_add_clean_dir(${_lcmtypes_csharp_dir})
+endfunction()
+
 function(lcmtypes_install_types)
     lcmtypes_get_types(_lcmtypes)
     list(LENGTH _lcmtypes _num_lcmtypes)
@@ -463,23 +495,26 @@ function(lcmtypes_install_types)
     endif()
 
     install(FILES ${_lcmtypes} DESTINATION share/lcmtypes)
+    # Install csharp lcm_types for agile
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/lcmtypes/csharp" DESTINATION lcmtypes )
 endfunction()
 
 macro(lcmtypes_build)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LCM REQUIRED lcm)
-    
+
     #find lcm-gen (it may be in the install path)
     find_program(LCM_GEN_EXECUTABLE lcm-gen ${EXECUTABLE_OUTPUT_PATH} ${EXECUTABLE_INSTALL_PATH})
     if (NOT LCM_GEN_EXECUTABLE)
     	message(FATAL_ERROR "lcm-gen not found!\n")
     	return()
     endif()
-    
+
     lcmtypes_build_c(${ARGV})
     lcmtypes_build_cpp(${ARGV})
 
     lcmtypes_build_java(${ARGV})
     lcmtypes_build_python(${ARGV})
+    lcmtypes_build_csharp(${ARGV})
     lcmtypes_install_types()
 endmacro()

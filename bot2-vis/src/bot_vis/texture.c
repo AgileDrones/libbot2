@@ -236,35 +236,35 @@ bot_gl_texture_upload (BotGlTexture * t, GLenum format,
         glPixelStorei (GL_UNPACK_ALIGNMENT, 4);
     }
 
-    glPixelStorei (GL_UNPACK_ROW_LENGTH, stride * 8 / bits_per_pixel);
-    if (t->use_pbo) {
-
-        glBindBufferARB (GL_PIXEL_UNPACK_BUFFER_ARB, t->pbo);
-
-        /* By setting data to NULL, we skip the memcpy and just re-upload
-         * from the buffer object.  This can be useful to re-upload with
-         * different PixelTransfer settings. */
-        if (data) {
-            uint8_t *buffer_data = 
-                (uint8_t*) glMapBufferARB (GL_PIXEL_UNPACK_BUFFER_ARB,
-                        GL_WRITE_ONLY);
-            if (!buffer_data) {
-                glPixelStorei (GL_UNPACK_ROW_LENGTH, 0);
-                glBindTexture (t->target, 0);
-                return -1;
-            }
-            memcpy (buffer_data, data, stride * t->height);
-            glUnmapBufferARB (GL_PIXEL_UNPACK_BUFFER_ARB);
-        }
-
-        glTexImage2D (t->target, 0, t->int_format, t->width, t->height, 0,
-                format, type, 0);
-
-        glBindBufferARB (GL_PIXEL_UNPACK_BUFFER_ARB, 0);
-    } else {
+//    glPixelStorei (GL_UNPACK_ROW_LENGTH, stride * 8 / bits_per_pixel);
+//    /*if (t->use_pbo) {
+//
+//        glBindBufferARB (GL_PIXEL_UNPACK_BUFFER_ARB, t->pbo);
+//
+//        /* By setting data to NULL, we skip the memcpy and just re-upload
+//         * from the buffer object.  This can be useful to re-upload with
+//         * different PixelTransfer settings. */
+//        if (data) {
+//            uint8_t *buffer_data = 
+//                (uint8_t*) glMapBufferARB (GL_PIXEL_UNPACK_BUFFER_ARB,
+//                        GL_WRITE_ONLY);
+//            if (!buffer_data) {
+//                glPixelStorei (GL_UNPACK_ROW_LENGTH, 0);
+//                glBindTexture (t->target, 0);
+//                return -1;
+//            }
+//            memcpy (buffer_data, data, stride * t->height);
+//            glUnmapBufferARB (GL_PIXEL_UNPACK_BUFFER_ARB);
+//        }
+//
+//        glTexImage2D (t->target, 0, t->int_format, t->width, t->height, 0,
+//                format, type, 0);
+//
+//        glBindBufferARB (GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+//    } else {
        glTexImage2D (t->target, 0, t->int_format, t->width, t->height, 0,
                 format, type, data);
-    }
+//    }
     glPixelStorei (GL_UNPACK_ROW_LENGTH, 0);
     glBindTexture (t->target, 0);
     return 0;

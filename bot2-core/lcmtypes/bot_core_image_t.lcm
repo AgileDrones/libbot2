@@ -51,6 +51,7 @@ struct image_t
     const int32_t PIXEL_FORMAT_LE_BAYER16_GRBG  = 859914828;
     const int32_t PIXEL_FORMAT_LE_BAYER16_RGGB  = 876692044;
     const int32_t PIXEL_FORMAT_MJPEG            = 1196444237;
+    const int32_t PIXEL_FORMAT_SNAPPY_GRAY      = 1863245895;
     const int32_t PIXEL_FORMAT_BE_GRAY16        = 357;
     const int32_t PIXEL_FORMAT_LE_GRAY16        = 909199180;
     const int32_t PIXEL_FORMAT_BE_RGB16         = 358;
