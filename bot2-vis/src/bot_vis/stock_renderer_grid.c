@@ -209,7 +209,7 @@ static BotRenderer *renderer_grid_new (BotViewer *viewer)
 	bot_gtk_param_widget_add_booleans (self->pw, BOT_GTK_PARAM_WIDGET_DEFAULTS, 
             PARAM_GRID_SPACING_AUTOMATIC, 1, NULL);
     bot_gtk_param_widget_add_double(self->pw, 
-            PARAM_GRID_SPACING, BOT_GTK_PARAM_WIDGET_SPINBOX, 0, 10000, 0.1, 1);
+            PARAM_GRID_SPACING, BOT_GTK_PARAM_WIDGET_SPINBOX, 0, 10000, 0.001, 1);
 
     g_signal_connect (G_OBJECT (self->pw), "changed",
             G_CALLBACK (on_param_widget_changed), self);
