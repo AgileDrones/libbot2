@@ -595,7 +595,7 @@ on_button_press (GtkWidget *widget, GdkEventButton *event, void *user_data)
     _window_coord_to_ray (event->x, widget->allocation.height - event->y, ray_start, ray_dir);
 
     // find a new picker?
-    double best_distance = HUGE;
+    double best_distance = DBL_MAX;
     BotEventHandler *best_handler = NULL;
 
     if (self->picking_handler == NULL || self->picking_handler->picking==0) {
@@ -683,7 +683,7 @@ on_motion_notify (GtkWidget *widget, GdkEventMotion *event, void *user_data)
     if (self->picking_handler == NULL || !self->picking_handler->picking) {
 
         // find a new hover?
-        double best_distance = HUGE;
+        double best_distance = DBL_MAX;
         BotEventHandler *best_handler = NULL;
         
         for (unsigned int eidx = 0; eidx < self->event_handlers->len; eidx++) {
